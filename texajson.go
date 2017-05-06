@@ -4,8 +4,98 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
 )
+
+var SlabTempSize []int
+
+// CatValArray exports the sub-JSON document for CatPage
+type CatValArray struct {
+	CatName string  `json:"CatName"`
+	Spf     float64 `json:"Spf"`
+}
+
+// CatPage exports schema for data/cat.json
+type CatPage struct {
+	AIName string        `json:"AIName"`
+	CatVal []CatValArray `json:"CatVal"`
+}
+
+// ToString returns the string equivalent JSON format of CatPage
+func (p CatPage) ToString() string {
+	return ToJson(p)
+}
+
+//GetCatPages returns a converted CatPage Array persistent to the mts.json
+func GetCatPages() []CatPage {
+	raw, err := ioutil.ReadFile("./www/data/cat.json")
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+
+	var c []CatPage
+	json.Unmarshal(raw, &c)
+	return c
+}
+
+// ConvtoCatPage converts a set of data vars into a CatPage struct variable
+func ConvtoCatPage(AIName string, slabPageArray []SlabPage, SlabNameArray []string) CatPage {
+	var newCatPage CatPage
+	newCatPage.AIName = AIName
+	cv := make([]CatValArray, len(SlabNameArray))
+
+	fmt.Println("####SlabTempSize")
+	fmt.Println(SlabTempSize)
+
+	for index := 0; index < len(slabPageArray); index++ {
+		for n := 0; n < len(SlabNameArray); n++ {
+			if SlabNameArray[n] == slabPageArray[index].SlabName {
+				cv[index].CatName = slabPageArray[index].SlabName
+				ef := (float64(slabPageArray[index].NQDropped) / float64(slabPageArray[index].AvgSlabSize))
+				rf := (float64(SlabTempSize[n]-slabPageArray[index].NQDropped) / float64(SlabTempSize[n]))
+				// cv[index].Spf = ((float64(SlabTempSize[n]-slabPageArray[index].NQDropped) / float64(SlabTempSize[n])) / (float64(slabPageArray[index].NQDropped) / float64(slabPageArray[index].AvgSlabSize)))
+				if math.IsInf(ef, 0) {
+					cv[index].Spf = 999
+				} else {
+					cv[index].Spf = rf / ef
+				}
+			}
+		}
+	}
+
+	fmt.Println("####cv")
+	fmt.Println(cv)
+
+	newCatPage.CatVal = cv
+	return newCatPage
+}
+
+// AddtoCatPageArray Appends a new CatPage 'p' to the specified target CatPageArray 'pa'
+func AddtoCatPageArray(p CatPage, pa []CatPage) []CatPage {
+	for index := 0; index < len(pa); index++ {
+		if pa[index].AIName == p.AIName {
+			for a := 0; a < len(p.CatVal); a++ {
+				pa[index].CatVal = append(pa[index].CatVal, p.CatVal[a])
+			}
+			return pa
+		}
+	}
+	return (append(pa, p))
+}
+
+// ToJson marshals CatPageArray data into JSON format
+func CatToJson(p interface{}) string {
+	bytes, err := json.Marshal(p)
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+	ioutil.WriteFile("./www/data/cat.json", bytes, 0644)
+	SlabTempSize = nil
+	return string(bytes)
+}
 
 // SlabPage exports schema for reportcard/mts.json
 type SlabPage struct {
@@ -82,42 +172,18 @@ func ConvtoSlabPage(ArtiQSA []uint64, SlabNameArray []string, slabSeqArray []str
 
 	fmt.Println("###dupMap")
 	dupMap := dupCount(slabSeqArray)
+	SlabTempSize = make([]int, len(SlabNameArray))
 	for k, v := range dupMap {
 		for x := 0; x < len(SlabNameArray); x++ {
 			if k == SlabNameArray[x] {
 				if v >= 1 {
+					SlabTempSize[x] = v
 					sp[x].AvgSlabSize = (sp[x].AvgSlabSize*sp[x].NSlabExposed + v) / (sp[x].NSlabExposed + 1)
 					sp[x].NSlabExposed++
 				}
 			}
 		}
 	}
-
-	// for k := 0; k < len(SlabNameArray); k++ {
-	// 	sizeCounter := 0
-	// 	for j := 0; j < len(slabSeqArray); j++ {
-	// 		if SlabNameArray[k] == slabSeqArray[j] {
-	// 			sizeCounter++
-	// 		}
-	// 	}
-
-	// }
-
-	// for i := 0; i < len(ArtiQSA); i++ {
-	// 	for k := 0; k < len(SlabNameArray); k++ {
-	// 		if sp[k].SlabName == slabSeqArray[i] {
-
-	// 		}
-	// 	}
-	// }
-
-	// for i := 0; i < len(ArtiQSA); i++ {
-	// 	for k := 0; k < len(SlabNameArray); k++ {
-	// 		if sp[k].SlabName == slabSeqArray[i] {
-
-	// 		}
-	// 	}
-	// }
 	return (sp)
 }
 
