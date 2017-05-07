@@ -9,6 +9,7 @@ import (
 )
 
 var SlabTempSize []int
+var SlabTempNQD []int
 
 // CatValArray exports the sub-JSON document for CatPage
 type CatValArray struct {
@@ -52,14 +53,15 @@ func ConvtoCatPage(AIName string, slabPageArray []SlabPage, SlabNameArray []stri
 	for index := 0; index < len(slabPageArray); index++ {
 		for n := 0; n < len(SlabNameArray); n++ {
 			if SlabNameArray[n] == slabPageArray[index].SlabName {
-				cv[index].CatName = slabPageArray[index].SlabName
+				cv[n].CatName = slabPageArray[index].SlabName
 				ef := (float64(slabPageArray[index].NQDropped) / float64(slabPageArray[index].AvgSlabSize))
-				rf := (float64(SlabTempSize[n]-slabPageArray[index].NQDropped) / float64(SlabTempSize[n]))
+				rf := (float64(SlabTempSize[n]-SlabTempNQD[n]) / float64(SlabTempSize[n]))
 				// cv[index].Spf = ((float64(SlabTempSize[n]-slabPageArray[index].NQDropped) / float64(SlabTempSize[n])) / (float64(slabPageArray[index].NQDropped) / float64(slabPageArray[index].AvgSlabSize)))
-				if math.IsInf(ef, 0) {
-					cv[index].Spf = 999
+				spfTemp := rf / ef
+				if math.IsInf(spfTemp, 0) {
+					cv[n].Spf = 999
 				} else {
-					cv[index].Spf = rf / ef
+					cv[n].Spf = spfTemp
 				}
 			}
 		}
@@ -77,7 +79,13 @@ func AddtoCatPageArray(p CatPage, pa []CatPage) []CatPage {
 	for index := 0; index < len(pa); index++ {
 		if pa[index].AIName == p.AIName {
 			for a := 0; a < len(p.CatVal); a++ {
+				for m := 0; m < len(pa[index].CatVal); m++ {
+					if p.CatVal[a].CatName == pa[index].CatVal[m].CatName {
+						pa[index].CatVal[m].Spf = p.CatVal[a].Spf
+					}
+				}
 				pa[index].CatVal = append(pa[index].CatVal, p.CatVal[a])
+				// pa[index].CatVal = append(pa[index].CatVal, p.CatVal[a])
 			}
 			return pa
 		}
@@ -94,6 +102,7 @@ func CatToJson(p interface{}) string {
 	}
 	ioutil.WriteFile("./www/data/cat.json", bytes, 0644)
 	SlabTempSize = nil
+	SlabTempNQD = nil
 	return string(bytes)
 }
 
@@ -158,10 +167,12 @@ func ConvtoSlabPage(ArtiQSA []uint64, SlabNameArray []string, slabSeqArray []str
 	fmt.Println("###sp")
 	fmt.Println(sp)
 
+	SlabTempNQD = make([]int, len(SlabNameArray))
 	for i := 0; i < len(ArtiQSA); i++ {
 		if ArtiQSA[i] == 0 {
 			for k := 0; k < len(SlabNameArray); k++ {
 				if sp[k].SlabName == slabSeqArray[i] {
+					SlabTempNQD[k]++
 					sp[k].NQDropped++
 				}
 			}
