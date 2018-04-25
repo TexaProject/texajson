@@ -316,7 +316,5 @@ func ToJson(p interface{}) string {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-	SlabTempSize = nil
-	SlabTempNQD = nil
 	return strBytes
 }
