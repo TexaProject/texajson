@@ -3,13 +3,21 @@ package texajson
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"os"
+
+	"github.com/go-redis/redis"
 )
 
 var SlabTempSize []int
 var SlabTempNQD []int
+var RedisClient *redis.Client
+
+var (
+	Cat  = "Cat"
+	Mts  = "Mts"
+	Slab = "Slab"
+)
 
 // CatValArray exports the sub-JSON document for CatPage
 type CatValArray struct {
@@ -28,16 +36,28 @@ func (p CatPage) ToString() string {
 	return ToJson(p)
 }
 
+func init() {
+	//make redis connection
+	RedisClient = redis.NewClient(&redis.Options{
+		Addr: "127.0.0.1:6379",
+	})
+	result, err := RedisClient.Ping().Result()
+	if err != nil {
+		panic("Err Connecting to Redis")
+	} else {
+		fmt.Println("Connected to Redis", result)
+	}
+}
+
 //GetCatPages returns a converted CatPage Array persistent to the mts.json
 func GetCatPages() []CatPage {
-	raw, err := ioutil.ReadFile("./www/data/cat.json")
-	if err != nil {
+	raw, err := RedisClient.Get(Cat).Result()
+	if err != nil && err.Error() != "redis: nil" {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-
-	var c []CatPage
-	json.Unmarshal(raw, &c)
+	c := []CatPage{}
+	json.Unmarshal([]byte(raw), &c)
 	return c
 }
 
@@ -100,10 +120,15 @@ func CatToJson(p interface{}) string {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-	ioutil.WriteFile("./www/data/cat.json", bytes, 0644)
+	strBytes := string(bytes)
+	err = RedisClient.Set(Cat, strBytes, 0).Err()
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
 	SlabTempSize = nil
 	SlabTempNQD = nil
-	return string(bytes)
+	return strBytes
 }
 
 // SlabPage exports schema for reportcard/mts.json
@@ -123,14 +148,13 @@ func (p SlabPage) ToString() string {
 //GetSlabPages returns a converted SlabPage Array persistent to the mts.json
 func GetSlabPages() []SlabPage {
 	fmt.Println("###GetSlabPages()")
-	raw, err := ioutil.ReadFile("./www/data/reportcard/slab.json")
-	if err != nil {
+	raw, err := RedisClient.Get(Slab).Result()
+	if err != nil && err.Error() != "redis: nil" {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-
-	var c []SlabPage
-	json.Unmarshal(raw, &c)
+	c := []SlabPage{}
+	json.Unmarshal([]byte(raw), &c)
 	return c
 }
 
@@ -222,8 +246,13 @@ func SlabToJson(p interface{}) string {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-	ioutil.WriteFile("./www/data/reportcard/slab.json", bytes, 0644)
-	return string(bytes)
+	strBytes := string(bytes)
+	err = RedisClient.Set(Slab, strBytes, 0).Err()
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+	return strBytes
 }
 
 // Page exports schema for mts.json
@@ -241,14 +270,13 @@ func (p Page) ToString() string {
 
 //GetPages returns a converted Page Array persistent to the mts.json
 func GetPages() []Page {
-	raw, err := ioutil.ReadFile("./www/data/mts.json")
-	if err != nil {
+	raw, err := RedisClient.Get(Mts).Result()
+	if err != nil && err.Error() != "redis: nil" {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-
-	var c []Page
-	json.Unmarshal(raw, &c)
+	c := []Page{}
+	json.Unmarshal([]byte(raw), &c)
 	return c
 }
 
@@ -282,6 +310,11 @@ func ToJson(p interface{}) string {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-	ioutil.WriteFile("./www/data/mts.json", bytes, 0644)
-	return string(bytes)
+	strBytes := string(bytes)
+	err = RedisClient.Set(Mts, strBytes, 0).Err()
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+	return strBytes
 }
