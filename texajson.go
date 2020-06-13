@@ -3,15 +3,20 @@ package texajson
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"os"
 
+	shell "github.com/ipfs/go-ipfs-api"
+
+	ipldcrud "github.com/0zAND1z/ipldcrud"
 	"github.com/go-redis/redis"
 )
 
 var SlabTempSize []int
 var SlabTempNQD []int
 var RedisClient *redis.Client
+var sh *shell.Shell
 
 var (
 	Cat  = "Cat"
@@ -46,6 +51,11 @@ func init() {
 		panic("Err Connecting to Redis")
 	} else {
 		fmt.Println("Connected to Redis", result)
+	}
+	// Setup IPFS client
+	sh := ipldcrud.InitShell("https://ipfs.infura.io:5001")
+	if sh == nil {
+		log.Fatalln("init(): Unable to initiate IPFS shell.")
 	}
 }
 
@@ -113,7 +123,7 @@ func AddtoCatPageArray(p CatPage, pa []CatPage) []CatPage {
 	return (append(pa, p))
 }
 
-// ToJson marshals CatPageArray data into JSON format
+// CatToJson marshals CatPageArray data into JSON format
 func CatToJson(p interface{}) string {
 	bytes, err := json.Marshal(p)
 	if err != nil {
@@ -121,6 +131,7 @@ func CatToJson(p interface{}) string {
 		os.Exit(1)
 	}
 	strBytes := string(bytes)
+
 	err = RedisClient.Set(Cat, strBytes, 0).Err()
 	if err != nil {
 		fmt.Println(err.Error())
@@ -128,6 +139,10 @@ func CatToJson(p interface{}) string {
 	}
 	SlabTempSize = nil
 	SlabTempNQD = nil
+
+	cid := ipldcrud.Set(sh, bytes)
+	fmt.Println("CatToJson(): CID published: ", cid)
+
 	return strBytes
 }
 
@@ -252,6 +267,10 @@ func SlabToJson(p interface{}) string {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
+
+	cid := ipldcrud.Set(sh, bytes)
+	fmt.Println("SlabToJson(): CID published: ", cid)
+
 	return strBytes
 }
 
@@ -316,5 +335,7 @@ func ToJson(p interface{}) string {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
+	cid := ipldcrud.Set(sh, bytes)
+	fmt.Println("ToJson(): CID published: ", cid)
 	return strBytes
 }
