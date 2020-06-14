@@ -140,9 +140,6 @@ func CatToJson(p interface{}) string {
 	SlabTempSize = nil
 	SlabTempNQD = nil
 
-	cid := ipldcrud.Set(sh, bytes)
-	fmt.Println("CatToJson(): CID published: ", cid)
-
 	return strBytes
 }
 
@@ -268,9 +265,6 @@ func SlabToJson(p interface{}) string {
 		os.Exit(1)
 	}
 
-	cid := ipldcrud.Set(sh, bytes)
-	fmt.Println("SlabToJson(): CID published: ", cid)
-
 	return strBytes
 }
 
@@ -335,8 +329,7 @@ func ToJson(p interface{}) string {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-	cid := ipldcrud.Set(sh, bytes)
-	fmt.Println("ToJson(): CID published: ", cid)
+
 	return strBytes
 }
 
@@ -348,10 +341,10 @@ type Result struct {
 
 // Interrogation is used to record the data from a session
 type Interrogation struct {
-	IntName  string      `json:"IntName"`
-	ArtiMts  float64     `json:"ArtiMts"`
-	HumanMts float64     `json:"HumanMts"`
-	CatVal   CatValArray `json:"CatVal"`
+	IntName  string        `json:"IntName"`
+	ArtiMts  float64       `json:"ArtiMts"`
+	HumanMts float64       `json:"HumanMts"`
+	CatVal   []CatValArray `json:"CatVal"`
 }
 
 // NewResultObject is used to create a new Result object for a new AI
@@ -363,7 +356,7 @@ func NewResultObject(aiName string) Result {
 }
 
 // NewInterrogationObject is created a new object and returns it
-func NewInterrogationObject(IntName string, ArtiMts, HumanMts float64, CatVal CatValArray) Interrogation {
+func NewInterrogationObject(IntName string, ArtiMts, HumanMts float64, CatVal []CatValArray) Interrogation {
 	return Interrogation{
 		IntName:  IntName,
 		ArtiMts:  ArtiMts,
