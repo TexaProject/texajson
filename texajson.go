@@ -339,3 +339,48 @@ func ToJson(p interface{}) string {
 	fmt.Println("ToJson(): CID published: ", cid)
 	return strBytes
 }
+
+// Result is the master table recording the results of all test sessions for a given AI
+type Result struct {
+	AIName         string          `json:"AIName"`
+	Interrogations []Interrogation `json:"Interrogations"`
+}
+
+// Interrogation is used to record the data from a session
+type Interrogation struct {
+	IntName  string                 `json:"IntName"`
+	ArtiMts  float64                `json:"ArtiMts"`
+	HumanMts float64                `json:"HumanMts"`
+	CatVal   []texajson.CatValArray `json:"CatVal"`
+}
+
+// NewResultObject is used to create a new Result object for a new AI
+func NewResultObject(aiName string) Result {
+	return Result{
+		AIName:         aiName,
+		Interrogations: []Interrogation{},
+	}
+}
+
+// NewInterrogationObject is created a new object and returns it
+func NewInterrogationObject(IntName string, ArtiMts, HumanMts float64, CatVal []texajson.CatValArray) Interrogation {
+	return Interrogation{
+		IntName:  IntName,
+		ArtiMts:  ArtiMts,
+		HumanMts: HumanMts,
+		CatVal:   CatVal,
+	}
+}
+
+// WriteDataToIPFS is used to write a data to IPFS using ipldcrud and return the CID
+func WriteDataToIPFS(data interface{}) string {
+	bytes, err := json.Marshal(data)
+	if err != nil {
+		log.Println("WriteDataToIPFS(): Issue in marshaling data!")
+	}
+	sh := ipldcrud.InitShell("http://localhost:5001") // Can be replaced with any hosted IPFS API URL also. Example: https://ipfs.infura.io:5001
+	resultCid := ipldcrud.Set(sh, bytes)
+	fmt.Println("WriteDataToIPFS(): Results of this testing session are globally accessible at https://explore.ipld.io/#/explore/" + resultCid)
+	fmt.Println("WriteDataToIPFS(): You can also access them locally through ipld-explorer at http://localhost:3000/#/explore/" + resultCid)
+	return resultCid
+}
