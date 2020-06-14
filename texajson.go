@@ -348,10 +348,10 @@ type Result struct {
 
 // Interrogation is used to record the data from a session
 type Interrogation struct {
-	IntName  string                 `json:"IntName"`
-	ArtiMts  float64                `json:"ArtiMts"`
-	HumanMts float64                `json:"HumanMts"`
-	CatVal   []texajson.CatValArray `json:"CatVal"`
+	IntName  string      `json:"IntName"`
+	ArtiMts  float64     `json:"ArtiMts"`
+	HumanMts float64     `json:"HumanMts"`
+	CatVal   CatValArray `json:"CatVal"`
 }
 
 // NewResultObject is used to create a new Result object for a new AI
@@ -363,7 +363,7 @@ func NewResultObject(aiName string) Result {
 }
 
 // NewInterrogationObject is created a new object and returns it
-func NewInterrogationObject(IntName string, ArtiMts, HumanMts float64, CatVal []texajson.CatValArray) Interrogation {
+func NewInterrogationObject(IntName string, ArtiMts, HumanMts float64, CatVal CatValArray) Interrogation {
 	return Interrogation{
 		IntName:  IntName,
 		ArtiMts:  ArtiMts,
