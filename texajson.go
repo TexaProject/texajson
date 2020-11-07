@@ -1,22 +1,29 @@
 package texajson
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"math"
 	"os"
+	"sync"
 
 	shell "github.com/ipfs/go-ipfs-api"
+	"github.com/ipfs/ipfs-cluster/api"
 
 	ipldcrud "github.com/0zAND1z/ipldcrud"
 	"github.com/go-redis/redis"
+	goCid "github.com/ipfs/go-cid"
+	"github.com/ipfs/ipfs-cluster/api/rest/client"
 )
 
 var SlabTempSize []int
 var SlabTempNQD []int
 var RedisClient *redis.Client
 var sh *shell.Shell
+var instance *IpfsCluster
+var once sync.Once
 
 var (
 	Cat  = "Cat"
@@ -24,10 +31,49 @@ var (
 	Slab = "Slab"
 )
 
+// IpfsCluster ... Client for IPFS-CLUSTER
+type IpfsCluster struct {
+	cluster client.Client
+}
+
+// GetInstance ...
+func GetInstance() *IpfsCluster {
+	return instance
+}
+
+// InitCluster ... Initialize ipfs-cluster client
+func InitCluster(host, port string) {
+	once.Do(func() {
+		clusterClient, err := client.NewDefaultClient(&client.Config{
+			Host:     host,
+			Port:     port,
+			LogLevel: "info",
+		})
+		if err != nil {
+			log.Fatal("InitCluster(): Unable to initiate ipfs-cluster", err)
+		}
+		instance = &IpfsCluster{cluster: clusterClient}
+	})
+}
+
+// PinCid .. Pins a cid into the ipfs-cluster network
+func (c IpfsCluster) PinCid(cid string) (retVal *api.Pin, err error) {
+	cidToPin, err := goCid.Parse(cid)
+	if err != nil {
+		return
+	}
+	retVal, err = c.cluster.Pin(context.Background(), cidToPin, api.DefaultAddParams().PinOptions)
+	if err != nil {
+		return
+	}
+	return
+}
+
 // CatValArray exports the sub-JSON document for CatPage
 type CatValArray struct {
-	CatName string  `json:"CatName"`
-	Spf     float64 `json:"Spf"`
+	CatName     string        `json:"CatName"`
+	Spf         float64       `json:"Spf"`
+	Interaction []Interaction `json:"Interaction"`
 }
 
 // CatPage exports schema for data/cat.json
@@ -39,6 +85,19 @@ type CatPage struct {
 // ToString returns the string equivalent JSON format of CatPage
 func (p CatPage) ToString() string {
 	return ToJson(p)
+}
+
+// Interaction represents communication b/w Ai and
+// human and its quantom score along with Justification.
+type Interaction struct {
+	HumanTransaction string `json:"HumanTransaction"`
+	AiTransaction    string `json:"AiTransaction"`
+	QuantomScore     uint64 `json:"QuantomScore"`
+	Justification    string `json:"Justification"`
+}
+
+func (i Interaction) ToString() string {
+	return ToJson(i)
 }
 
 func init() {
@@ -84,6 +143,10 @@ func ConvtoCatPage(AIName string, slabPageArray []SlabPage, SlabNameArray []stri
 		for n := 0; n < len(SlabNameArray); n++ {
 			if SlabNameArray[n] == slabPageArray[index].SlabName {
 				cv[n].CatName = slabPageArray[index].SlabName
+
+				// Adding Interaction array
+				cv[n].Interaction = slabPageArray[index].Interactions
+
 				ef := (float64(slabPageArray[index].NQDropped) / float64(slabPageArray[index].AvgSlabSize))
 				rf := (float64(SlabTempSize[n]-SlabTempNQD[n]) / float64(SlabTempSize[n]))
 				// cv[index].Spf = ((float64(SlabTempSize[n]-slabPageArray[index].NQDropped) / float64(SlabTempSize[n])) / (float64(slabPageArray[index].NQDropped) / float64(slabPageArray[index].AvgSlabSize)))
@@ -145,10 +208,11 @@ func CatToJson(p interface{}) string {
 
 // SlabPage exports schema for reportcard/mts.json
 type SlabPage struct {
-	SlabName     string `json:"SlabName"`
-	NQDropped    int    `json:"NQDropped"`
-	AvgSlabSize  int    `json:"AvgSlabSize"`
-	NSlabExposed int    `json:"NSlabExposed"`
+	SlabName     string        `json:"SlabName"`
+	NQDropped    int           `json:"NQDropped"`
+	AvgSlabSize  int           `json:"AvgSlabSize"`
+	NSlabExposed int           `json:"NSlabExposed"`
+	Interactions []Interaction `json:"Interaction"`
 }
 
 // ToString returns the string equivalent JSON format of SlabPage
@@ -189,7 +253,7 @@ func dupCount(list []string) map[string]int {
 }
 
 // ConvtoSlabPage configures the parameters of SlabPage using the ArtiQSA
-func ConvtoSlabPage(ArtiQSA []uint64, SlabNameArray []string, slabSeqArray []string) []SlabPage {
+func ConvtoSlabPage(ArtiQSA []uint64, SlabNameArray []string, slabSeqArray []string, justification []string, transactions []string) []SlabPage {
 	fmt.Println("###ConvtoSlabPage()")
 	sp := make([]SlabPage, len(SlabNameArray))
 
@@ -204,6 +268,7 @@ func ConvtoSlabPage(ArtiQSA []uint64, SlabNameArray []string, slabSeqArray []str
 	fmt.Println(sp)
 
 	SlabTempNQD = make([]int, len(SlabNameArray))
+	t := 0
 	for i := 0; i < len(ArtiQSA); i++ {
 		if ArtiQSA[i] == 0 {
 			for k := 0; k < len(SlabNameArray); k++ {
@@ -211,6 +276,28 @@ func ConvtoSlabPage(ArtiQSA []uint64, SlabNameArray []string, slabSeqArray []str
 					SlabTempNQD[k]++
 					sp[k].NQDropped++
 				}
+			}
+		}
+
+		for j := 0; j < len(SlabNameArray); j++ {
+			var intractn Interaction
+			if sp[j].SlabName == slabSeqArray[i] {
+				if i == 0 {
+					intractn = Interaction{HumanTransaction: "", AiTransaction: transactions[t], QuantomScore: ArtiQSA[i], Justification: justification[i]}
+					t++
+					fmt.Println("transaction index", t)
+				} else {
+					hTransaction := transactions[t]
+					t++
+					aiTransaction := transactions[t]
+					t++
+					intractn = Interaction{HumanTransaction: hTransaction, AiTransaction: aiTransaction, QuantomScore: ArtiQSA[i], Justification: justification[i]}
+					fmt.Println(t)
+				}
+				if sp[j].Interactions == nil {
+					sp[j].Interactions = make([]Interaction, 0)
+				}
+				sp[j].Interactions = append(sp[j].Interactions, intractn)
 			}
 		}
 	}
@@ -243,6 +330,7 @@ func AddtoSlabPageArray(p SlabPage, pa []SlabPage) []SlabPage {
 			pa[x].NSlabExposed += p.NSlabExposed
 			pa[x].NQDropped += p.NQDropped
 			pa[x].AvgSlabSize = (pa[x].AvgSlabSize + p.AvgSlabSize) / pa[x].NSlabExposed
+			pa[x].Interactions = p.Interactions
 			return pa
 		}
 
