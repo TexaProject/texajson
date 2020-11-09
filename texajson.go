@@ -36,7 +36,7 @@ type IpfsCluster struct {
 	cluster client.Client
 }
 
-// GetInstance ...
+// GetInstance ... returns an IPFS cluster client
 func GetInstance() *IpfsCluster {
 	return instance
 }
@@ -88,11 +88,11 @@ func (p CatPage) ToString() string {
 }
 
 // Interaction represents communication b/w Ai and
-// human and its quantom score along with Justification.
+// human and its quantum score along with Justification.
 type Interaction struct {
 	HumanTransaction string `json:"HumanTransaction"`
 	AiTransaction    string `json:"AiTransaction"`
-	QuantomScore     uint64 `json:"QuantomScore"`
+	QuantumScore     uint64 `json:"QuantumScore"`
 	Justification    string `json:"Justification"`
 }
 
@@ -253,7 +253,7 @@ func dupCount(list []string) map[string]int {
 }
 
 // ConvtoSlabPage configures the parameters of SlabPage using the ArtiQSA
-func ConvtoSlabPage(ArtiQSA []uint64, SlabNameArray []string, slabSeqArray []string, justification []string, transactions []string) []SlabPage {
+func ConvtoSlabPage(ArtiQSA []uint64, SlabNameArray []string, slabSeqArray []string, justifications []string, transactions []string) []SlabPage {
 	fmt.Println("###ConvtoSlabPage()")
 	sp := make([]SlabPage, len(SlabNameArray))
 
@@ -268,7 +268,7 @@ func ConvtoSlabPage(ArtiQSA []uint64, SlabNameArray []string, slabSeqArray []str
 	fmt.Println(sp)
 
 	SlabTempNQD = make([]int, len(SlabNameArray))
-	t := 0
+	transactionCounter := 0
 	for i := 0; i < len(ArtiQSA); i++ {
 		if ArtiQSA[i] == 0 {
 			for k := 0; k < len(SlabNameArray); k++ {
@@ -280,24 +280,24 @@ func ConvtoSlabPage(ArtiQSA []uint64, SlabNameArray []string, slabSeqArray []str
 		}
 
 		for j := 0; j < len(SlabNameArray); j++ {
-			var intractn Interaction
+			var interaction Interaction
 			if sp[j].SlabName == slabSeqArray[i] {
 				if i == 0 {
-					intractn = Interaction{HumanTransaction: "", AiTransaction: transactions[t], QuantomScore: ArtiQSA[i], Justification: justification[i]}
-					t++
-					fmt.Println("transaction index", t)
+					interaction = Interaction{HumanTransaction: "", AiTransaction: transactions[transactionCounter], QuantumScore: ArtiQSA[i], Justification: justifications[i]}
+					transactionCounter++
+					fmt.Println("transaction index", transactionCounter)
 				} else {
-					hTransaction := transactions[t]
-					t++
-					aiTransaction := transactions[t]
-					t++
-					intractn = Interaction{HumanTransaction: hTransaction, AiTransaction: aiTransaction, QuantomScore: ArtiQSA[i], Justification: justification[i]}
-					fmt.Println(t)
+					hTransaction := transactions[transactionCounter]
+					transactionCounter++
+					aiTransaction := transactions[transactionCounter]
+					transactionCounter++
+					interaction = Interaction{HumanTransaction: hTransaction, AiTransaction: aiTransaction, QuantumScore: ArtiQSA[i], Justification: justifications[i]}
+					fmt.Println(transactionCounter)
 				}
 				if sp[j].Interactions == nil {
 					sp[j].Interactions = make([]Interaction, 0)
 				}
-				sp[j].Interactions = append(sp[j].Interactions, intractn)
+				sp[j].Interactions = append(sp[j].Interactions, interaction)
 			}
 		}
 	}
